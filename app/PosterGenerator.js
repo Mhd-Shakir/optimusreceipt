@@ -1,152 +1,184 @@
-'use client';
+"use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Poppins } from 'next/font/google';
-import styles from './PosterGenerator.module.css';
-
-const poppins = Poppins({
-  weight: ['400', '600', '700'],
-  subsets: ['latin'],
-  display: 'swap',
-});
 
 export default function PosterGenerator() {
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('100'); 
-  const [imageLoaded, setImageLoaded] = useState(false);
-  
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const imageRef = useRef(null);
-
-  // --- CONFIGURATION ---
-  const PRIMARY_COLOR = "#0b4627"; 
-  const TEXT_Y_POSITION = 0.54;    
   
-  const PRICE_X = 0.29;   // 29% from left
-  const PRICE_Y = 0.185;  // 18.5% from top
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState(''); 
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Default Image Path
+  const [imageSrc, setImageSrc] = useState('/optimus receipt.jpg');
+
+  // --- FINAL COORDINATES ---
+  const TEXT_COLOR = "#ffffff"; 
+
+  // 1. PRICE POSITION (Left Aligned)
+  // X=0.18: Aligns with the start of "Gratefully"
+  // Y=0.15: Sits above the text
+  const PRICE_X_POS = 0.18; 
+  const PRICE_Y_POS = 0.15; 
+  
+  // 2. NAME POSITION (Left Aligned)
+  // X=0.24: Starts right after the pre-printed "Dear"
+  // Y=0.533: Sits perfectly on the dotted line after "Dear"
+  const NAME_X_POS = 0.25; 
+  const NAME_Y_POS = 0.527;
+  // ---------------------
+
+  // Initialize Canvas when Image loads or changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = imageSrc;
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      document.fonts.ready.then(() => {
+        ctx.drawImage(img, 0, 0);
+        setIsLoaded(true);
+        drawPoster(img); 
+      });
+    };
+  }, [imageSrc]);
+
+  // Redraw when Name or Price changes
+  useEffect(() => {
+    if (isLoaded) {
+      const img = new Image();
+      img.src = imageSrc;
+      img.onload = () => drawPoster(img);
+    }
+  }, [name, price, isLoaded]);
+
+  const drawPoster = (img) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Reset Canvas
+    ctx.drawImage(img, 0, 0);
+
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = TEXT_COLOR;
+
+    // 2. Draw Price (Left Aligned, Above Text)
+    if (price.trim()) {
+      ctx.textAlign = "left"; // Left Align
+      const priceFontSize = canvas.width * 0.08; // Big Font
+      ctx.font = `800 ${priceFontSize}px sans-serif`; 
+      const priceText = `₹ ${price.trim()}`;
+      ctx.fillText(priceText, canvas.width * PRICE_X_POS, canvas.height * PRICE_Y_POS);
+    }
+
+    // 3. Draw Name (Left Aligned, On dotted line after "Dear")
+    if (name.trim()) {
+      ctx.textAlign = "left"; // Left Align
+      const nameFontSize = canvas.width * 0.035; // Bigger font size than "Dear"
+      ctx.font = `700 ${nameFontSize}px sans-serif`; // Bold font
+      // Draws text after "Dear"
+      ctx.fillText(name, canvas.width * NAME_X_POS, canvas.height * NAME_Y_POS);
+    }
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          imageRef.current = img;
-          setImageLoaded(true);
-          setTimeout(() => drawPoster(), 0); 
-        };
-        img.src = event.target.result;
+        setImageSrc(event.target.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const drawPoster = () => {
+  const downloadImage = () => {
+    if (!name.trim() && !price.trim()) {
+      alert("Please enter details first.");
+      return;
+    }
     const canvas = canvasRef.current;
-    const img = imageRef.current;
-    if (!canvas || !img) return;
-
-    const ctx = canvas.getContext('2d');
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    // 1. Draw Background
-    ctx.drawImage(img, 0, 0);
-
-    const w = canvas.width;
-    const h = canvas.height;
-
-    // 2. Draw Price Text (No Background Box)
-    if (price) {
-        const priceFontSize = w * 0.045; 
-        ctx.font = `bold ${priceFontSize}px ${poppins.style.fontFamily}, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ffffff"; // White text
-        ctx.fillText(`₹ ${price}`, PRICE_X * w, PRICE_Y * h);
-    }
-
-    // 3. Draw Name
-    if (name) {
-      const nameFontSize = w * 0.035; 
-      ctx.font = `bold ${nameFontSize}px ${poppins.style.fontFamily}, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = PRIMARY_COLOR; 
-      ctx.fillText(name.toUpperCase(), w / 2, h * TEXT_Y_POSITION);
-    }
-  };
-
-  useEffect(() => {
-    if (imageLoaded) {
-      drawPoster();
-    }
-  }, [name, price, imageLoaded]);
-
-  const handleDownload = () => {
-    if (!imageLoaded) return alert("Please upload template first.");
-    if (!name.trim()) return alert("Please enter a name.");
-
     const link = document.createElement('a');
-    const fileName = name.trim().replace(/\s+/g, '-').toLowerCase();
-    link.download = `sadaqah-${fileName}.png`;
-    link.href = canvasRef.current.toDataURL('image/png');
+    let fileName = 'Optimus-Receipt';
+    if (name.trim()) fileName += `-${name.trim().replace(/\s+/g, '-')}`;
+    link.download = fileName + '.png';
+    link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
   return (
-    <div className={`${styles.bodyContainer} ${poppins.className}`}>
-      <div className={styles.mainCard}>
-        <div className={styles.header}>
-          <h1>Poster Generator</h1>
-          <p>Update Name & Price</p>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans">
+      
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+        
+        {/* Header */}
+        <div className="bg-[#b50014] p-6 text-center">
+          <h1 className="text-3xl font-extrabold text-white tracking-wide">Optimus Receipt</h1>
         </div>
 
-        <div className={styles.content}>
+        {/* Content Area */}
+        <div className="p-6 space-y-6">
+
+          {/* UPLOAD OPTION */}
+          <div 
+            className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => fileInputRef.current.click()}
+          >
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleFileUpload} 
+              accept="image/*" 
+              className="hidden" 
+            />
+            <p className="text-sm text-gray-500 font-semibold">
+              Tap to Upload / Change Poster Template
+            </p>
+          </div>
           
-          {!imageLoaded && (
-            <div className={styles.uploadBox} onClick={() => fileInputRef.current.click()}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0b4627" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-              <p>Tap to Upload Template</p>
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" style={{ display: 'none' }} />
-            </div>
-          )}
-
-          <div className={styles.row}>
-            <div className={styles.inputGroup}>
-                <label>Amount (₹)</label>
-                <input 
-                  type="number" 
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="100" 
+          {/* Inputs Row */}
+          <div className="flex gap-4">
+            <div className="w-1/3 space-y-2">
+                <label className="text-xs font-bold text-gray-700 block uppercase">Amount</label>
+                <input
+                type="number"
+                placeholder="₹"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="w-full px-2 py-3 text-lg font-bold text-center text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:border-[#b50014] focus:outline-none"
                 />
             </div>
-            
-            <div className={styles.inputGroup} style={{ flex: 2 }}>
-                <label>Donor Name</label>
-                <input 
-                  type="text" 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Muhammed Shakir" 
-                  autoComplete="off"
+
+            <div className="w-2/3 space-y-2">
+                <label className="text-xs font-bold text-gray-700 block uppercase">Donor Name</label>
+                <input
+                type="text"
+                placeholder="Muhammed Shakir"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 text-lg font-semibold text-center text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:border-[#b50014] focus:outline-none"
                 />
             </div>
           </div>
 
-          <div className={styles.previewArea} style={{ display: imageLoaded ? 'flex' : 'none' }}>
-            <canvas ref={canvasRef} />
+          {/* Live Preview */}
+          <div className="bg-gray-50 p-2 border border-gray-200 rounded-lg">
+            <canvas ref={canvasRef} className="w-full h-auto block rounded" />
           </div>
 
-          <button onClick={handleDownload} className={styles.downloadBtn}>
-            Download Poster
+          {/* Download Button */}
+          <button
+            onClick={downloadImage}
+            disabled={!isLoaded || (!name.trim() && !price.trim())}
+            className="w-full bg-[#b50014] hover:bg-[#960010] text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Download Receipt
           </button>
         </div>
       </div>
