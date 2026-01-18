@@ -4,14 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function PosterGenerator() {
   const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
   
   const [name, setName] = useState('');
   const [price, setPrice] = useState(''); 
   const [isLoaded, setIsLoaded] = useState(false);
   
-  // Default Image Path
-  const [imageSrc, setImageSrc] = useState('/optimus receipt.jpg');
+  // Default Image - using the optimus receipt from public folder
+  const imageSrc = '/optimus receipt.jpeg';
 
   // --- FINAL COORDINATES ---
   const TEXT_COLOR = "#ffffff"; 
@@ -125,23 +124,6 @@ export default function PosterGenerator() {
         {/* Content Area */}
         <div className="p-6 space-y-6">
 
-          {/* UPLOAD OPTION */}
-          <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => fileInputRef.current.click()}
-          >
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleFileUpload} 
-              accept="image/*" 
-              className="hidden" 
-            />
-            <p className="text-sm text-gray-500 font-semibold">
-              Tap to Upload / Change Poster Template
-            </p>
-          </div>
-          
           {/* Inputs Row */}
           <div className="flex gap-4">
             <div className="w-1/3 space-y-2">
